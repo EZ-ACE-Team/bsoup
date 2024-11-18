@@ -1,17 +1,23 @@
 extern crate walkdir;
+extern crate chrono;
 
+use std::ffi::OsStr;
+use std::fs;
 use std::fs::metadata;
 use actix_web::{get, HttpResponse, Responder};
 use walkdir::WalkDir;
 use std::path::Path;
-use std::time::{Duration, SystemTime};
+use std::time::{SystemTime};
+use actix_web::dev::ResourcePath;
 use serde;
+use chrono::{DateTime, Duration, TimeZone, Utc};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FileDataInfo {
-    Name: Option<String>,
-    Description: Option<String>,
-    Upload: Option<Duration>
+    name: Option<String>,
+    description: Option<String>,
+    upload: Option<String>,
+    file_type: Option<String>
 }
 
 pub fn list_all_files<P: AsRef<Path>>(path: P) -> Vec<FileDataInfo> {
@@ -30,44 +36,64 @@ pub fn list_all_files<P: AsRef<Path>>(path: P) -> Vec<FileDataInfo> {
     for entry in filtered_iterator {
         // 파일 유형 확인
         if entry.file_type().is_file() || entry.file_type().is_dir() {
-            let mut fileInfo = FileDataInfo {
-                Name: None,
-                Description: None,
-                Upload: None
+            let mut file_info = FileDataInfo {
+                name: None,
+                description: None,
+                upload: None,
+                file_type: None
             };
 
             let file_path = entry.file_name().to_str().unwrap().to_string();
             let file_meta = entry.metadata().unwrap();
 
-            fileInfo.Name = Some(file_path);
+            match entry.path().extension().and_then(OsStr::to_str) {
+                Some(_) => {
+                    let file_ms = get_modified_secs(
+                        entry.path().to_str().unwrap()
+                    ).to_string().parse::<i64>().unwrap();
 
-            if let Ok(modifiedd) = file_meta.modified() {
-                let datetime = SystemTime::now().duration_since(modifiedd).unwrap();
-                let modified = SystemTime::now() - Duration::from_secs(5 * 3600 * 30 * 60);
-                let datetime = SystemTime::now().duration_since(modified).unwrap();
+                    let datetime = Utc.timestamp_opt(file_ms, 0).single()
+                        .expect("not validate type").to_string();
 
-                let total_seconds = datetime.as_secs();
-
-                let hours = total_seconds / 3600;
-                let minutes = (total_seconds % 3600) / 60;
-                let seconds = total_seconds % 60;
-
-
-                println!("현재 시간 {:?}", modified);
-                println!("차이 {:?}",datetime);
-                println!("시간 차이는 {}시간 {}분 {}초", hours, minutes, seconds);
-
-                fileInfo.Upload = Some(datetime);
+                    file_info.upload = Some(datetime);
+                    file_info.file_type = Some(get_extension(entry.path()));
+                }
+                None => {
+                    file_info.file_type = Some(get_extension(entry.path()));
+                }
             }
 
-            files.push(fileInfo);
+            file_info.name = Some(file_path);
+
+            files.push(file_info);
         }
     }
 
     return files;
 }
 
-#[get("/getMarkdown")]
+fn get_extension(entry: &std::path::Path) -> String {
+    if (entry.is_dir()) {
+        "directory".to_string()
+    } else {
+        entry.extension().and_then(|ext| ext.to_str()).map(|ext_str| ext_str.to_string()).unwrap()
+    }
+}
+
+pub fn get_modified_secs(file: &str) -> usize {
+    let modified_date = fs::metadata(file).expect("Need metadate");
+
+    let secs = modified_date
+        .modified()
+        .expect("Need modified date")
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("Need duration")
+        .as_secs();
+
+    secs.try_into().unwrap()
+}
+
+#[get("/admin/getDocumentList")]
 pub async fn get_markdown() -> impl Responder {
     let files: Vec<FileDataInfo> = list_all_files("develop-center-md");
 

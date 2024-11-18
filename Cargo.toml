@@ -7,3 +7,5 @@ edition = "2021"
 actix-web = "4.8.0"
 walkdir = "2.3.3"
 serde = { version = "1.0.215", features = ["derive"] }
+chrono = "0.4.38"
+chrono-tz = "0.10.0"
