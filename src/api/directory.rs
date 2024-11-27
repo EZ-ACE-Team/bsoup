@@ -9,6 +9,7 @@ use walkdir::WalkDir;
 use std::path::{Path};
 use chrono::{TimeZone, Utc};
 use model::admin::{ReqPath, FileDataInfo};
+use crate::model::admin::ReqFile;
 
 // path ) 디렉토리 리스트 추출
 pub fn list_all_files<T: AsRef<Path>>(path: T) -> Vec<FileDataInfo> {
@@ -108,4 +109,23 @@ pub async fn get_document_list(body: web::Json<ReqPath>) -> impl Responder {
     let files: Vec<FileDataInfo> = list_all_files(path.unwrap());
 
     HttpResponse::Ok().json(filtered_dir_list(files, &dir_path, &sub_dir))
+}
+
+#[post("/admin/createDirectory")]
+pub async fn create_dir(body: web::Json<ReqFile>) -> impl Responder {
+    let path = if body.request_path == "" {
+        "develop-center-md".to_string()
+    } else {
+        body.request_path.to_owned()
+    };
+
+    let dir_name = body.file_name.to_owned();
+
+    let new_path = Path::new(&path).join(&dir_name);
+
+    let mut f = fs::create_dir(new_path).expect("could not create directory");
+
+    println!("directory crate success");
+
+    HttpResponse::Ok()
 }

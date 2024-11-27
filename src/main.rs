@@ -8,7 +8,10 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(||
         App::new()
             .service(api::directory::get_document_list)
-            .service(api::open_file::get_readfile)
+            .service(api::file_management::get_readfile)
+            .service(api::file_management::save_markdown)
+            .service(api::file_management::remove_file)
+            .service(api::directory::create_dir)
             .route("/", web::get()
                 .to(HttpResponse::Ok)))
         .workers(4).bind(("127.0.0.1", 8080))?

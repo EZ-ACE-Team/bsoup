@@ -31,3 +31,10 @@ pub struct ReqFile {
     pub request_path: String,
     pub file_name: String
 }
+
+#[derive(serde::Deserialize)]
+pub struct ReqSaveMD {
+    pub markdown: String,
+    pub request_path: String,
+    pub file_name: String
+}
