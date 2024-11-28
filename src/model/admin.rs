@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use serde;
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -12,7 +12,7 @@ pub struct FileDataInfo {
 
 impl FileDataInfo {
     pub fn get_extension(entry: &std::path::Path) -> String {
-        if (entry.is_dir()) {
+        if entry.is_dir() {
             "directory".to_string()
         } else {
             entry.extension().and_then(|ext| ext.to_str()).map(|ext_str| ext_str.to_string()).unwrap()
