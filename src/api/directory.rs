@@ -1,14 +1,16 @@
-extern crate walkdir;
 extern crate chrono;
-use crate::model;
-
+extern crate walkdir;
 use std::ffi::OsStr;
 use std::fs;
-use actix_web::{web, post, HttpResponse, Responder};
-use walkdir::WalkDir;
-use std::path::{Path};
+use std::path::{Path, PathBuf};
+
+use actix_web::{HttpResponse, post, Responder, web};
 use chrono::{TimeZone, Utc};
-use model::admin::{ReqPath, FileDataInfo};
+use walkdir::WalkDir;
+
+use model::admin::{FileDataInfo, ReqPath};
+
+use crate::model;
 use crate::model::admin::ReqFile;
 
 // path ) 디렉토리 리스트 추출
@@ -66,6 +68,60 @@ pub fn list_all_files<T: AsRef<Path>>(path: T) -> Vec<FileDataInfo> {
     return files;
 }
 
+pub fn get_test_dir_search<T: AsRef<Path>>(path: T) -> Vec<FileDataInfo> {
+    let mut files = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&path) {
+        for entry in entries.flatten() {
+            let file_type = entry.file_type().unwrap();
+
+            if file_type.is_file() || file_type.is_dir() {
+                let mut file_info = FileDataInfo {
+                    name: None,
+                    description: None,
+                    upload: None,
+                    file_type: None,
+                    file_path: None
+                };
+
+                let file_path = entry.file_name().to_str().unwrap().to_string();
+
+                match entry.path().extension().and_then(OsStr::to_str) {
+                    Some(_) => {
+                        let file_ms = get_modified_secs(entry.path().to_str().unwrap())
+                            .to_string()
+                            .parse::<i64>()
+                            .unwrap();
+
+                        let datetime = Utc
+                            .timestamp_opt(file_ms, 0)
+                            .single()
+                            .expect("not validate type")
+                            .to_string();
+
+                        file_info.upload = Some(datetime);
+                        file_info.file_type =
+                            Some(FileDataInfo::get_extension(&entry.path()));
+                    }
+                    None => {
+                        file_info.file_type =
+                            Some(FileDataInfo::get_extension(&entry.path()));
+                    }
+                }
+
+                file_info.name = Some(file_path);
+                file_info.file_path = Some(path.as_ref().to_owned());
+
+                files.push(file_info);
+            }
+        }
+    }
+
+    files.sort_by_key(|a| a.upload.is_some());
+
+    files
+}
+
 // 파일 마지막 수정 시간 확인
 pub fn get_modified_secs(file: &str) -> usize {
     let modified_date = fs::metadata(file).expect("Need metadate");
@@ -81,16 +137,35 @@ pub fn get_modified_secs(file: &str) -> usize {
 }
 
 // 파일 필터링
-pub fn filtered_dir_list<'a>(files: Vec<FileDataInfo>, dir_path: &str, sub_path: &str) -> Vec<FileDataInfo> {
+pub fn filtered_dir_list<'a>(mut files: Vec<FileDataInfo>, dir_path: &str, sub_path: &str, x: Option<PathBuf>) -> Vec<FileDataInfo> {
     println!("path : {:?}, sub_path : {:?}",dir_path, sub_path);
-    if sub_path.len() > 0 && sub_path != ".." {
-        files.iter().cloned().map(|mut x| {
-            if x.name == Some(sub_path.to_string()) {
-                x.name = Some("..".to_string());
-            }
-            x
-        }).collect()
+
+    if x != Some(PathBuf::from("develop-center-md")){
+        println!("하위 디렉토리");
+        let mut file_info = FileDataInfo {
+            name: None,
+            description: None,
+            upload: None,
+            file_type: None,
+            file_path: None
+        };
+        file_info.name = Some("..".to_string());
+        file_info.file_path = x;
+        file_info.file_type = Some("directory".to_string());
+
+        files.push(file_info);
+
+        files.sort_by_key(|file| file.name.as_deref() != Some(".."));
+
+        files
+        // files.iter().cloned().map(|mut x| {
+        //     if x.name == Some(sub_path.to_string()) {
+        //         x.name = Some("..".to_string());
+        //     }
+        //     x
+        // }).collect()
     } else {
+        println!("상위 디렉토리");
         files.into_iter().filter(|p| &p.name.as_ref().unwrap().to_string() != dir_path)
             .collect()
     }
@@ -98,34 +173,44 @@ pub fn filtered_dir_list<'a>(files: Vec<FileDataInfo>, dir_path: &str, sub_path:
 
 #[post("/admin/getDocumentList")]
 pub async fn get_document_list(body: web::Json<ReqPath>) -> impl Responder {
-    let dir_path = "develop-center-md";
+    println!("path ? {:?}, sub path ? {:?}", body.path, body.request_path);
+    let dir_path = if &body.path == "" {
+        "develop-center-md"
+    } else {
+        &body.path
+    };
     let sub_dir = &body.request_path;
     let path = if sub_dir == ".." {
+        println!("path parent ? {:?}", Path::new(&body.path).parent());
         Path::new(&body.path).parent().map(|p| p.to_path_buf())
     } else {
         Some(Path::new(&dir_path).join(sub_dir))
     };
 
-    let files: Vec<FileDataInfo> = list_all_files(path.unwrap());
+    println!("{:?}", path);
 
-    HttpResponse::Ok().json(filtered_dir_list(files, &dir_path, &sub_dir))
+    // let files: Vec<FileDataInfo> = list_all_files(path.unwrap());
+    let files: Vec<FileDataInfo> = get_test_dir_search(path.as_ref().unwrap());
+
+    HttpResponse::Ok().json(filtered_dir_list(files, &dir_path, &sub_dir, path))
 }
 
 #[post("/admin/createDirectory")]
 pub async fn create_dir(body: web::Json<ReqFile>) -> impl Responder {
-    let path = if body.request_path == "" {
-        "develop-center-md".to_string()
+    let dir_path = if &body.request_path == "" {
+        "develop-center-md"
     } else {
-        body.request_path.to_owned()
+        &body.request_path
     };
-
     let dir_name = body.file_name.to_owned();
 
-    let new_path = Path::new(&path).join(&dir_name);
+    let new_path = Path::new(&dir_path).join(&dir_name);
 
-    let mut f = fs::create_dir(new_path).expect("could not create directory");
+    let f = fs::create_dir(new_path);
 
-    println!("directory crate success");
+    let mut f = return match f {
+        Ok(_) => HttpResponse::Ok(),
+        Err(e) => HttpResponse::Forbidden()
+    };
 
-    HttpResponse::Ok()
 }
