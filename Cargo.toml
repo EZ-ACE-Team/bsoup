@@ -9,3 +9,7 @@ walkdir = "2.3.3"
 serde = { version = "1.0.215", features = ["derive"] }
 chrono = "0.4.38"
 chrono-tz = "0.10.0"
+actix-multipart = "0.7.2"
+tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread", "fs"]}
+actix-form-data = "0.6.2"
+futures-util = "0.3.31"

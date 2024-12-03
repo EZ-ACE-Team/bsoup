@@ -12,6 +12,7 @@ async fn main() -> std::io::Result<()> {
             .service(api::file_management::save_markdown)
             .service(api::file_management::remove_file)
             .service(api::directory::create_dir)
+            .service(api::uploader::text_file_uploader)
             .route("/", web::get()
                 .to(HttpResponse::Ok)))
         .workers(4).bind(("127.0.0.1", 8080))?
