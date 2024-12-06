@@ -1,9 +1,9 @@
-use std::fs;
-use actix_web::{web, post, HttpResponse, Responder};
-use std::path::{Path};
-use crate::model::admin::{ReqFile, ReqSaveMD};
-use std::fs::{OpenOptions};
+use crate::model::admin::{FileDataInfo, FileDeleteInfo, ReqDeleteFileList, ReqFile, ReqSaveMD};
+use actix_web::{post, web, HttpResponse, Responder};
+use std::fs::OpenOptions;
 use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::{fs, panic};
 
 #[post("/admin/getReadfile")]
 pub async fn get_readfile(body: web::Json<ReqFile>) -> impl Responder {
@@ -49,6 +49,23 @@ pub async fn remove_file(body: web::Json<ReqFile>) -> impl Responder {
     fs::remove_file(new_path).expect("could not remove file");
 
     println!("file remove success");
+
+    HttpResponse::Ok()
+}
+
+#[post("/admin/removeFileList")]
+pub async fn remove_file_list(files: web::Json<Vec<FileDeleteInfo>>) -> impl Responder {
+    for file in files.iter() {
+        let file_path = Path::new(&file.file_path).join(&file.name);
+
+        println!("{:?}", file_path);
+
+        let f = if file.file_type == "directory" {
+            fs::remove_dir(&file_path)
+        } else {
+            fs::remove_file(&file_path)
+        };
+    }
 
     HttpResponse::Ok()
 }
