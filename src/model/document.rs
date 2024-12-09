@@ -15,3 +15,14 @@ pub struct Document {
     pub menu: Vec<String>,
     pub submenu: Vec<Document>,
 }
+
+#[derive(Serialize, Default)]
+pub struct ExceptionCode {
+    pub err_code: u16,
+    pub err_message: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DocsType {
+    pub docs_type: String,
+}
