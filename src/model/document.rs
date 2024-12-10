@@ -26,3 +26,8 @@ pub struct ExceptionCode {
 pub struct DocsType {
     pub docs_type: String,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct DocsContent {
+    pub docs_path: String,
+}

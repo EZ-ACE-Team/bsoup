@@ -1,10 +1,22 @@
-use crate::model::document::{DocsType, Document, ExceptionCode, Root};
+use crate::model::document::{DocsContent, DocsType, Document, ExceptionCode, Root};
 use actix_web::http::StatusCode;
 use actix_web::{post, web, HttpResponse, Responder};
 use std::fs;
 use std::fs::{DirEntry, ReadDir};
 use std::path::Path;
 use walkdir::WalkDir;
+
+#[post("/admin/readDocumentContent")]
+pub async fn read_document_content(body: web::Json<DocsContent>) -> impl Responder {
+    let path = "develop-center-md";
+    let file_path = Path::new(&path).join(&body.docs_path);
+
+    println!("{:?}", file_path);
+
+    let f = fs::read_to_string(file_path).expect("cannot find file");
+
+    HttpResponse::Ok().body(f)
+}
 
 #[post("/admin/readDocumentList")]
 pub async fn read_document_list(body: web::Json<DocsType>) -> impl Responder {

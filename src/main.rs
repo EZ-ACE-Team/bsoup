@@ -15,6 +15,7 @@ async fn main() -> std::io::Result<()> {
             .service(api::uploader::text_file_uploader)
             .service(api::file_management::remove_file_list)
             .service(api::document::read_document_list)
+            .service(api::document::read_document_content)
             .route("/", web::get().to(HttpResponse::Ok))
     })
     .workers(4)
