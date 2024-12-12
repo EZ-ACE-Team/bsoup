@@ -21,7 +21,7 @@ pub async fn read_document_content(body: web::Json<DocsContent>) -> impl Respond
 #[post("/admin/readDocumentList")]
 pub async fn read_document_list(body: web::Json<DocsType>) -> impl Responder {
     let path = "develop-center-md";
-    let sub_path = "document";
+    let sub_path = &body.docs_type;
 
     let root_path = Path::new(&path).join(&body.docs_type);
 
